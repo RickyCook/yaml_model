@@ -9,13 +9,20 @@ from yaml_model import Model, ModelReference
 
 
 class RefTo(Model):
+    """
+    Model referenced by the RefIn model
+    """
     slug = None
+
     def __init__(self, slug):
         super(RefTo, self).__init__()
         self.slug = slug
 
 
 class RefIn(Model):
+    """
+    Model that references the RefTo model
+    """
     slug = 'refin'
     ref = ModelReference(lambda self: RefTo(self.ref_slug))
 
@@ -31,6 +38,7 @@ def model_with_ref(request):
     ref_in.ref = ref_to
 
     return request.param, ref_in
+
 
 class TestModelReference(object):
     """
@@ -50,6 +58,5 @@ class TestModelReference(object):
         with cleandir.join('data', 'refins', 'refin.yaml').open() as handle:
             assert yaml.load(handle) == {'ref_slug': slug}
 
-        assert RefIn().ref_slug == slug
+        assert RefIn().ref_slug == slug  # pylint:disable=no-member
         assert RefIn().ref.slug == slug
-

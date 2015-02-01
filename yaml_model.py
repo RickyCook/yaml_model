@@ -3,7 +3,6 @@ A very light-weight "model" structure to lazy-load (or generate) and save YAML
 from Python objects composed of specialized fields
 """
 
-import collections
 import os
 
 from contextlib import contextmanager
@@ -11,7 +10,7 @@ from contextlib import contextmanager
 from yaml import safe_load as yaml_load, dump as yaml_dump
 
 
-immutable_types = (int, float, str, tuple, None.__class__)
+IMMUTABLE_TYPES = (int, float, str, tuple, None.__class__)
 
 
 class ValidationError(Exception):
@@ -52,6 +51,7 @@ class TransientValueError(Exception):
     cached, or saved automatically
     """
     def __init__(self, value):
+        super(TransientValueError, self).__init__()
         self.value = value
 
 
@@ -78,6 +78,8 @@ class OnAccess(object):  # pylint:disable=too-few-public-methods
         self.input_transform = input_transform
         self.output_transform = output_transform
 
+        self.future_cls = None
+
     def process_generate_default(self, self_, generate, default):
         """
         Process the generate/default values to get a value
@@ -94,6 +96,8 @@ class OnAccess(object):  # pylint:disable=too-few-public-methods
         else:
             raise NoValueError(self_.__class__, self.var_name)
 
+    # Needs to be class method so that it can be overridden
+    # pylint:disable=no-self-use
     def process_value_generator(self, self_, gen_value):
         """
         Process a generate/default argument for a value
@@ -176,85 +180,6 @@ class LoadOnAccess(OnAccess):  # pylint:disable=too-few-public-methods
         lst.append(self.var_name)
 
 
-#class ModelReference(OnAccess):
-#    """
-#    A model reference field that adds both a model field, and a _slug field
-#    that reference each other
-#    """
-#    def __init__(self,
-#                 builder_func,
-#                 stored=True,
-#                 default=None,
-#                 *args,
-#                 **kwargs):
-#        self.builder_func = builder_func
-#        self.stored = stored
-#        self.default = default
-#
-#        super(ModelReference, self).__init__(
-#            self.model_builder, *args, **kwargs
-#        )
-#
-#    @property
-#    def model_builder(self):
-#        """
-#        Get a safe builder func that gets a model from a slug
-#        """
-#        def deferred_wrapper(*args, **kwargs):
-#            """
-#            Defer calling the wrapper until this object has been correctly
-#            initialized
-#            """
-#            return self.wrapped_builder_for(
-#                '%s_slug' % self.var_name,
-#                self.builder_func,
-#            )(*args, **kwargs)
-#
-#        return deferred_wrapper
-#
-#    @property
-#    def slug_builder(self):
-#        """
-#        Get a safe builder func that gets a slug from a model
-#        """
-#        return self.wrapped_builder_for(
-#            self.var_name,
-#            lambda self_: getattr(self_, self.var_name).slug,
-#        )
-#
-#    def wrapped_builder_for(self, var_name, inner_builder):
-#        """
-#        Decorator (sort of) to wrap a builder in a TransientValueError guard
-#        """
-#        def outer_builder(self_):
-#            """
-#            Wrap the inner_builder in a has_value guard and TransientValueError
-#            """
-#            if not self_.has_value(var_name):
-#                raise TransientValueError(
-#                    self.default(self_)
-#                    if callable(self.default)
-#                    else self.default
-#                )
-#
-#            return inner_builder(self_)
-#
-#        return outer_builder
-#
-#    def modify_class(self):
-#        super(ModelReference, self).modify_class()
-#
-#        if self.stored:
-#            slug_field = LoadOnAccess(generate=self.slug_builder)
-#
-#        else:
-#            slug_field = OnAccess(self.slug_builder)
-#
-#        slug_field.var_name = "%s_slug" % self.var_name
-#        slug_field.future_cls = self.future_cls
-#        slug_field.modify_class()
-
-
 class ModelReference(OnAccess):
     """
     A model reference field that adds both a model field, and a _slug field
@@ -270,6 +195,7 @@ class ModelReference(OnAccess):
         self.builder_func = builder_func
         self.stored = stored
         self.default = default
+        self.generate = generate
 
         super(ModelReference, self).__init__(
             self.model_builder, *args, **kwargs
@@ -282,7 +208,7 @@ class ModelReference(OnAccess):
         """
         return "%s_slug" % self.var_name
 
-    def process_value_generator(gen_value):
+    def process_value_generator(self, self_, gen_value):
         """
         Process a generate/default argument for a slug value
         """
@@ -295,7 +221,7 @@ class ModelReference(OnAccess):
             value = gen_value
 
         if is_model:
-            return value.slug
+            return value.slug  # pylint:disable=no-member
 
         return value
 
@@ -310,7 +236,7 @@ class ModelReference(OnAccess):
                                              self.generate,
                                              self.default)
 
-    def model_builder(self, self_, slug=None):
+    def model_builder(self, self_):
         """
         Builder to create a model object from the associated slug
         """
@@ -400,13 +326,13 @@ class Model(object, metaclass=ModelMeta):
             except KeyError:
                 continue
 
-            if value.__class__ in immutable_types:
+            if value.__class__ in IMMUTABLE_TYPES:
                 continue
 
             new_hash = hash_value(value)
 
             if var_name in self._lazy_vals_hashes:
-                if  new_hash != self._lazy_vals_hashes[var_name]:
+                if new_hash != self._lazy_vals_hashes[var_name]:
                     self._dirty_vals[var_name] = value
                     del self._lazy_vals[var_name]
 
@@ -417,8 +343,8 @@ class Model(object, metaclass=ModelMeta):
         """
         Check if there's a value for the given property
         """
-        return var_name in self._lazy_vals or \
-               var_name in self._dirty_vals
+        return (var_name in self._lazy_vals or
+                var_name in self._dirty_vals)
 
     def is_dirty(self, var_name, recheck=True):
         """

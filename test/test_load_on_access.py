@@ -1,7 +1,6 @@
 """
 Test the LoadOnAccess class
 """
-import py.path
 import pytest
 import yaml
 
@@ -9,6 +8,9 @@ from yaml_model import LoadOnAccess, Model
 
 
 class TestBase(Model):
+    """
+    Base test model that just has a default slug
+    """
     slug = 'test'
 
 
@@ -21,28 +23,29 @@ class TestLoadOnAccess(object):
         """
         Tests that params are lazy loaded
         """
-        class Test(TestBase):
-            f1 = LoadOnAccess()
-            f2 = LoadOnAccess()
+        class Test(TestBase):  # pylint:disable=missing-docstring
+            field1 = LoadOnAccess()
+            field2 = LoadOnAccess()
 
         data_file = cleandir.join('data', 'tests', 'test.yaml')
         data_file.ensure()
         with data_file.open('w') as handle:
             handle.write("""
-            f1: hey there
-            f2: just testing
+            field1: hey there
+            field2: just testing
             """)
 
         test = Test()
 
         assert test._lazy_vals == {}
-        assert test.f1 == 'hey there'
-        assert test._lazy_vals == {'f1': 'hey there', 'f2': 'just testing'}
-        assert test.f2 == 'just testing'
+        assert test.field1 == 'hey there'
+        assert test._lazy_vals == {'field1': 'hey there',
+                                   'field2': 'just testing'}
+        assert test.field2 == 'just testing'
 
     @pytest.mark.parametrize('create', [True, False])  # Model exists first
     @pytest.mark.parametrize('kwarg_name,yaml_data', [
-        ('generate', {'f1': 'hey there'}),
+        ('generate', {'field1': 'hey there'}),
         ('default', {})
     ])
     def test_default_generate_persist(self,
@@ -54,8 +57,9 @@ class TestLoadOnAccess(object):
         Tests to make sure that generate/default kwarg generates
         """
         kwargs = {kwarg_name: 'hey there'}
-        class Test(TestBase):
-            f1 = LoadOnAccess(**kwargs)
+
+        class Test(TestBase):  # pylint:disable=missing-docstring
+            field1 = LoadOnAccess(**kwargs)
 
         data_file = cleandir.join('data', 'tests', 'test.yaml')
         if create:
@@ -74,15 +78,21 @@ class TestLoadOnAccess(object):
         work)
         """
         data = {}
+
         def test_self(self_):
+            """
+            A "generator" that asserts the id of models match
+            """
             assert id(self_) == id(data['model'])
 
         kwargs = {kwarg_name: test_self}
-        class Test(TestBase):
-            f1 = LoadOnAccess(**kwargs)
+
+        class Test(TestBase):  # pylint:disable=missing-docstring
+            field1 = LoadOnAccess(**kwargs)
 
         data['model'] = Test()
-        data['model'].f1
+        # Not pointless; this triggers a load. Test pass if no exception
+        data['model'].field1  # pylint:disable=pointless-statement
 
     @pytest.mark.parametrize('kwarg_name', ['generate', 'default'])
     @pytest.mark.parametrize('value', ['test', 22, {}, [], True, False])
@@ -91,22 +101,25 @@ class TestLoadOnAccess(object):
         Test to make sure that generate/default kwargs can static values
         """
         kwargs = {kwarg_name: value}
-        class Test(TestBase):
-            f1 = LoadOnAccess(**kwargs)
 
-        assert Test().f1 == value
+        class Test(TestBase):  # pylint:disable=missing-docstring
+            field1 = LoadOnAccess(**kwargs)
 
-    @pytest.mark.parametrize('kwarg_name',
+        assert Test().field1 == value
+
+    @pytest.mark.parametrize(
+        'kwarg_name',
         ['input_transform', 'output_transform']
     )
-    def test_transforms(self, cleandir, kwarg_name):
+    def test_transforms(self, kwarg_name):
         """
         Test that input/output transforms apply as expected
         """
         kwargs = {kwarg_name: lambda value: value + 1}
-        class Test(TestBase):
-            f1 = LoadOnAccess(**kwargs)
+
+        class Test(TestBase):  # pylint:disable=missing-docstring
+            field1 = LoadOnAccess(**kwargs)
 
         test = Test()
-        test.f1 = 1
-        assert test.f1 == 2
+        test.field1 = 1
+        assert test.field1 == 2

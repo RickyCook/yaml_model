@@ -1,4 +1,8 @@
+"""
+Pytest configuration, fixtures, general setup
+"""
 import pytest
+
 
 @pytest.yield_fixture
 def cleandir(tmpdir):
