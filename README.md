@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/RickyCook/yaml_model.svg)](https://travis-ci.org/RickyCook/yaml_model)[![Coverage Status](https://coveralls.io/repos/RickyCook/yaml_model/badge.svg?branch=master)](https://coveralls.io/r/RickyCook/yaml_model?branch=master)
+
 # YAML Model
 Semi-transparent YAML serialization/deserialization. What does this mean? Well,
 much like every other serialization method ever, you create your "fields" that
@@ -53,4 +55,4 @@ called, and passed the model it's being called on as the first argument.
 
 ### ModelReference differences
 When adding a ModelReference field, these fields are considered to return
-a slug, or an instance of a Model.
+a cat slug, or an instance of a Model.
