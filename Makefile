@@ -5,7 +5,7 @@ styletest:
 	pylint --rcfile pylint-test.conf test/*.py
 
 unittest:
-	py.test test
+	py.test --cov yaml_model test
 
 test: styletest unittest
 
