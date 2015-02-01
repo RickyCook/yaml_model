@@ -4,7 +4,7 @@ Test the Model class
 import pytest
 import yaml
 
-from yaml_model import LoadOnAccess, Model, NoValueError, OnAccess, ValidationError
+from yaml_model import LoadOnAccess, Model, NoValueError, ValidationError
 
 
 SLUG_ERR_MESSAGE = 'Slug can not be blank'
@@ -25,7 +25,7 @@ class TestModel(object):
         """
         Basic test of new model creation, load
         """
-        class Test(Model):
+        class Test(Model):  # pylint:disable=missing-docstring
             slug = None
             test_field = LoadOnAccess()
 
@@ -55,7 +55,8 @@ class TestModel(object):
         """
         No override of slug causes exception
         """
-        class Test(Model):
+        class Test(Model):  # pylint:disable=missing-docstring
+            # pylint:disable=abstract-method
             pass
 
         test = Test()
@@ -68,7 +69,7 @@ class TestModel(object):
         """
         Test that blank slugs raise ValidationError
         """
-        class Test(Model):
+        class Test(Model):  # pylint:disable=missing-docstring
             slug = None
 
             def __init__(self, slug):
@@ -89,7 +90,7 @@ class TestModel(object):
         """
         Test the has_value function
         """
-        class Test(Model):
+        class Test(Model):  # pylint:disable=missing-docstring
             slug = 'test'
             test_field = LoadOnAccess()
             other_field = LoadOnAccess()
@@ -107,7 +108,8 @@ class TestModel(object):
         default exists
         """
         pytest.skip("Requires fix")  # TODO don't skip this!
-        class Test(Model):
+
+        class Test(Model):  # pylint:disable=missing-docstring
             slug = 'test'
             test_field = LoadOnAccess()
 
@@ -133,13 +135,21 @@ class TestModel(object):
         errors from all levels
         """
         class TestParent(Model):
+            """
+            Parent model, whose validation errors should bubble up
+            """
             slug = None
+
             def validate(self):
                 with self.parent_validation(TestParent):
                     if parent_errors:
                         raise ValidationError(parent_errors)
 
         class TestChild(TestParent):
+            """
+            Child model that validate will be called on
+            """
+
             def validate(self):
                 with self.parent_validation(TestChild):
                     if child_errors:
@@ -159,59 +169,61 @@ class TestModel(object):
         Tests the from_dict method to make sure it properly applies properties
         and marks them as dirty, or cleanwho
         """
-        class Test(Model):
+        class Test(Model):  # pylint:disable=missing-docstring
             slug = 'test'
-            f1 = LoadOnAccess()
-            f2 = LoadOnAccess()
+            field1 = LoadOnAccess()
+            field2 = LoadOnAccess()
 
         test = Test()
-        test.from_dict({'f1': 'testf1', 'f2': 'testf2'}, dirty=dirty)
-        assert test.f1 == 'testf1'
-        assert test.f2 == 'testf2'
-        assert test.is_dirty('f1') == dirty
-        assert test.is_dirty('f2') == dirty
+        test.from_dict({'field1': 'testfield1',
+                        'field2': 'testfield2'}, dirty=dirty)
+        assert test.field1 == 'testfield1'
+        assert test.field2 == 'testfield2'
+        assert test.is_dirty('field1') == dirty
+        assert test.is_dirty('field2') == dirty
 
     def test_from_dict_missing(self):
         """
         Tests the from_dict method with only some model data
         """
-        class Test(Model):
+        class Test(Model):  # pylint:disable=missing-docstring
             slug = 'test'
-            f1 = LoadOnAccess()
-            f2 = LoadOnAccess()
+            field1 = LoadOnAccess()
+            field2 = LoadOnAccess()
 
         test = Test()
-        test.from_dict({'f1': 'testf1'})
-        assert test.f1 == 'testf1'
+        test.from_dict({'field1': 'testfield1'})
+        assert test.field1 == 'testfield1'
 
         with pytest.raises(NoValueError):
-            assert test.f2 == 'testf2'
+            assert test.field2 == 'testfield2'
 
     def test_from_dict_extra(self):
         """
         Tests the from_dict method with extra data in the dict
         """
-        class Test(Model):
+        class Test(Model):  # pylint:disable=missing-docstring
             slug = 'test'
-            f1 = LoadOnAccess()
+            field1 = LoadOnAccess()
 
         test = Test()
-        test.from_dict({'f1': 'testf1', 'f2': 'testf2'})
-        assert test.f1 == 'testf1'
+        test.from_dict({'field1': 'testfield1', 'field2': 'testfield2'})
+        assert test.field1 == 'testfield1'
 
     def test_as_dict(self):
         """
         Tests the as_dict method to make sure data is correctly "serialized"
         """
-        class Test(Model):
+        class Test(Model):  # pylint:disable=missing-docstring
             slug = 'test'
-            f1 = LoadOnAccess()
-            f2 = LoadOnAccess()
+            field1 = LoadOnAccess()
+            field2 = LoadOnAccess()
 
         test = Test()
-        test.f1 = 'testf1'
-        test.f2 = 'testf2'
-        assert test.as_dict() == {'f1': 'testf1', 'f2': 'testf2'}
+        test.field1 = 'testfield1'
+        test.field2 = 'testfield2'
+        assert test.as_dict() == {'field1': 'testfield1',
+                                  'field2': 'testfield2'}
 
     @pytest.mark.parametrize('empty_mutable', [{}, []])
     def test_dirty_mutable(self, empty_mutable):
@@ -219,7 +231,7 @@ class TestModel(object):
         Change a mutable in place and make sure that object dirty checks still
         work
         """
-        class Test(Model):
+        class Test(Model):  # pylint:disable=missing-docstring
             slug = 'test'
             mutable = LoadOnAccess()
 
@@ -227,7 +239,8 @@ class TestModel(object):
         test.mutable = empty_mutable
         test.save()
 
-        assert not test.is_dirty('mutable'), "Data is not dirty when just saved"
+        assert not test.is_dirty('mutable'), (
+            "Data is not dirty when just saved")
 
         if hasattr(empty_mutable, 'append'):
             empty_mutable.append('test')

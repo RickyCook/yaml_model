@@ -20,8 +20,8 @@ class TestValidationError(object):
         """
         Test string coersion
         """
-        e = ValidationError(messages)
-        assert str(e) == expected
+        ex = ValidationError(messages)
+        assert str(ex) == expected
 
 
 class TestNoValueError(object):
@@ -35,5 +35,5 @@ class TestNoValueError(object):
         """
         Test string coersion
         """
-        e = NoValueError(None, var_name)
-        assert var_name in str(e)
+        ex = NoValueError(None, var_name)
+        assert var_name in str(ex)
