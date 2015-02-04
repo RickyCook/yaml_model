@@ -379,12 +379,13 @@ class Model(object, metaclass=ModelMeta):
         if data_file is None:
             data_file = os.path.join(*self.data_file_path())
 
+        # Mark any dirty data so that it's not lost
+        if recheck_dirty:
+            self.recheck_dirty()
+
         with open(data_file) as handle:
             data = yaml_load(handle)
             self.from_dict(data, dirty=False)
-
-        if recheck_dirty:
-            self.recheck_dirty()
 
     def save(self,
              data_file=None,

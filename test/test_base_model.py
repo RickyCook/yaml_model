@@ -256,3 +256,29 @@ class TestModel(object):
             test.recheck_dirty()
 
         assert test.is_dirty('mutable', recheck=not recheck_all)
+
+    @pytest.mark.parametrize('empty_mutable,expected', [
+        ({}, {'test': 'test'}),
+        ([], ['test']),
+    ])
+    def test_load_with_dirty_mutable(self, empty_mutable, expected):
+        """
+        Test loading over dirty mutable values to make sure that it's not
+        erased
+        """
+        class Test(Model):  # pylint:disable=missing-docstring
+            slug = 'test'
+            mutable = LoadOnAccess()
+
+        test = Test()
+        test.mutable = empty_mutable
+        test.save()
+
+        if hasattr(empty_mutable, 'append'):
+            empty_mutable.append('test')
+
+        else:
+            empty_mutable['test'] = 'test'
+
+        test.load(recheck_dirty=True)
+        assert test.mutable == expected
