@@ -225,8 +225,9 @@ class TestModel(object):
         assert test.as_dict() == {'field1': 'testfield1',
                                   'field2': 'testfield2'}
 
+    @pytest.mark.parametrize('recheck_all', [True, False])
     @pytest.mark.parametrize('empty_mutable', [{}, []])
-    def test_dirty_mutable(self, empty_mutable):
+    def test_dirty_mutable(self, empty_mutable, recheck_all):
         """
         Change a mutable in place and make sure that object dirty checks still
         work
@@ -234,6 +235,9 @@ class TestModel(object):
         class Test(Model):  # pylint:disable=missing-docstring
             slug = 'test'
             mutable = LoadOnAccess()
+
+        # Update the param will make it not empty any more in next tests :|
+        empty_mutable = empty_mutable.copy()
 
         test = Test()
         test.mutable = empty_mutable
@@ -247,4 +251,8 @@ class TestModel(object):
         else:
             empty_mutable['test'] = 'test'
 
-        assert test.is_dirty('mutable', recheck=True)
+        if recheck_all:
+            # Check `RuntimeError: dictionary changed size during iteration`
+            test.recheck_dirty()
+
+        assert test.is_dirty('mutable', recheck=not recheck_all)

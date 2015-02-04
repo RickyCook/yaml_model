@@ -314,7 +314,7 @@ class Model(object, metaclass=ModelMeta):
         into account in-place modification of objects
         """
         if fields is None:
-            fields = self._lazy_vals.keys()
+            fields = list(self._lazy_vals.keys())
 
         elif isinstance(fields, str):
             fields = (fields,)
