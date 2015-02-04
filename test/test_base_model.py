@@ -282,3 +282,20 @@ class TestModel(object):
 
         test.load(recheck_dirty=True)
         assert test.mutable == expected
+
+    def test_from_dict_mutable_not_dirty(self):
+        """
+        Test the from_dict method resets hashes for mutable, lazy values
+        """
+        class Test(Model):  # pylint:disable=missing-docstring
+            slug = 'test'
+            mutable = LoadOnAccess()
+
+        test = Test()
+        test.mutable = []
+        test.save()
+
+        assert not test.is_dirty('mutable')
+
+        test.from_dict({'mutable': [True]}, dirty=False)
+        assert not test.is_dirty('mutable')

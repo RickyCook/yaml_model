@@ -475,7 +475,14 @@ class Model(object, metaclass=ModelMeta):
             if var_name in data:
                 vals_dict[var_name] = data[var_name]
 
-        self.recheck_dirty()
+                # Reset values hashes for if this is clean data
+                if not dirty:
+                    try:
+                        del self._lazy_vals_hashes[var_name]
+                    except KeyError:
+                        pass
+
+                    self.recheck_dirty(var_name)
 
     def as_dict(self):
         """
