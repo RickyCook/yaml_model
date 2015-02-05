@@ -283,7 +283,7 @@ class TestModel(object):
         test.load(recheck_dirty=True)
         assert test.mutable == expected
 
-    def test_from_dict_mutable_not_dirty(self):
+    def test_from_dict_mutable_clean(self):
         """
         Test the from_dict method resets hashes for mutable, lazy values
         """
