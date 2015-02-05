@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/RickyCook/yaml_model.svg)](https://travis-ci.org/RickyCook/yaml_model)[![Coverage Status](https://coveralls.io/repos/RickyCook/yaml_model/badge.svg?branch=master)](https://coveralls.io/r/RickyCook/yaml_model?branch=master)
+[![Build Status](https://travis-ci.org/RickyCook/yaml_model.svg)](https://travis-ci.org/RickyCook/yaml_model)[![Coverage Status](https://coveralls.io/repos/RickyCook/yaml_model/badge.svg?branch=master)](https://coveralls.io/r/RickyCook/yaml_model?branch=master)[![Join the chat at https://gitter.im/RickyCook/yaml_model](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/RickyCook/yaml_model?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 # YAML Model
 Semi-transparent YAML serialization/deserialization. What does this mean? Well,
