@@ -8,5 +8,5 @@ setup(name="yaml_model",
       author_email="mail@thatpanda.com",
       url="https://github.com/RickyCook/yaml_model",
       py_modules=['yaml_model'],
-      install_requires=['PyYAML>=3'],
+      install_requires=['PyYAML>=3', 'py>=1.4'],
       )
