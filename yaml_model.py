@@ -7,6 +7,8 @@ import os
 
 from contextlib import contextmanager
 
+import py.path
+
 from yaml import safe_load as yaml_load, dump as yaml_dump
 
 
@@ -307,6 +309,41 @@ class Model(object, metaclass=ModelMeta):
         Path parts used to create the data directory
         """
         return ['data', cls.data_name()]
+
+    @classmethod
+    def all(cls,
+            data_dir=None,
+            dereference=True,
+            skip_non_model=False,
+            new_args=None,
+            new_kwargs=None):
+        """
+        Generator for all models of this type
+        """
+        if data_dir is None:
+            data_dir = py.path.local('.').join(*cls.data_dir_path())
+        elif isinstance(data_dir, (tuple, list)):
+            data_dir = py.path.local('.').join(*data_dir)
+        else:
+            data_dir = py.path.local(data_dir)
+
+        if new_args is None:
+            new_args = ()
+        if new_kwargs is None:
+            new_kwargs = {}
+
+        model_data_dir = py.path.local('.').join(*cls.data_dir_path())
+        for filename in data_dir.listdir('*.yaml'):
+            if dereference:
+                real_path = filename.realpath()
+            else:
+                real_path = filename
+
+            if skip_non_model:
+                if real_path.dirname != model_data_dir:
+                    continue
+
+            yield cls(real_path.basename[:-5], *new_args, **new_kwargs)
 
     def recheck_dirty(self, fields=None):
         """
