@@ -7,6 +7,7 @@ import os
 
 from contextlib import contextmanager
 
+import py.error
 import py.path
 
 from yaml import safe_load as yaml_load, dump as yaml_dump
@@ -169,7 +170,7 @@ class LoadOnAccess(OnAccess):  # pylint:disable=too-few-public-methods
                 # pylint:disable=protected-access
                 return self_._lazy_vals[self.var_name]
 
-            except (FileNotFoundError, KeyError):
+            except (py.error.ENOENT, FileNotFoundError, KeyError):
                 return self.process_generate_default(self_, generate, default)
 
         super(LoadOnAccess, self).__init__(loader, *args, **kwargs)
@@ -308,7 +309,26 @@ class Model(object, metaclass=ModelMeta):
         """
         Path parts used to create the data directory
         """
-        return ['data', cls.data_name()]
+        return py.path.local('.').join('data', cls.data_name())
+
+    @classmethod
+    def data_dir_to_py_path(cls, data_dir, default=None):
+        """
+        Take a data path and convert it to a py.path.local reference, using
+        this model data dir as a base, if nothing is given
+        """
+        if data_dir is None:
+            if default is None:
+                return cls.data_dir_path()
+
+            else:
+                return cls.data_dir_to_py_path(default)
+
+        elif isinstance(data_dir, (tuple, list)):
+            return py.path.local('.').join(*data_dir)
+
+        else:
+            return py.path.local(data_dir)
 
     @classmethod
     def all(cls,
@@ -320,19 +340,14 @@ class Model(object, metaclass=ModelMeta):
         """
         Generator for all models of this type
         """
-        if data_dir is None:
-            data_dir = py.path.local('.').join(*cls.data_dir_path())
-        elif isinstance(data_dir, (tuple, list)):
-            data_dir = py.path.local('.').join(*data_dir)
-        else:
-            data_dir = py.path.local(data_dir)
+        data_dir = cls.data_dir_to_py_path(data_dir)
 
         if new_args is None:
             new_args = ()
         if new_kwargs is None:
             new_kwargs = {}
 
-        model_data_dir = py.path.local('.').join(*cls.data_dir_path())
+        model_data_dir = cls.data_dir_path()
         for filename in data_dir.listdir('*.yaml'):
             if dereference:
                 real_path = filename.realpath()
@@ -397,30 +412,29 @@ class Model(object, metaclass=ModelMeta):
         """
         Path parts used to create the data filename
         """
-        return self.__class__.data_dir_path() + ['%s.yaml' % self.slug]
+        return self.__class__.data_dir_path().join('%s.yaml' % self.slug)
 
     def exists(self, data_file=None):
         """
         Check to see if the model file exists (if not, maybe it's new)
         """
-        if data_file is None:
-            data_file_path = self.data_file_path()
-            data_file = os.path.join(*data_file_path)
-
-        return os.path.isfile(data_file)
+        return self.__class__.data_dir_to_py_path(
+            data_file, default=self.data_file_path()
+        ).check()
 
     def load(self, data_file=None, recheck_dirty=True):
         """
         Fill the object from the job file
         """
-        if data_file is None:
-            data_file = os.path.join(*self.data_file_path())
+        data_file = self.__class__.data_dir_to_py_path(
+            data_file, default=self.data_file_path()
+        )
 
         # Mark any dirty data so that it's not lost
         if recheck_dirty:
             self.recheck_dirty()
 
-        with open(data_file) as handle:
+        with data_file.open() as handle:
             data = yaml_load(handle)
             self.from_dict(data, dirty=False)
 
@@ -438,15 +452,15 @@ class Model(object, metaclass=ModelMeta):
         if reload and self.exists(data_file):
             self.load(data_file=data_file, recheck_dirty=reload_recheck_dirty)
 
-        if data_file is None:
-            data_file_path = self.data_file_path()
-            data_file = os.path.join(*data_file_path)
+        data_file = self.__class__.data_dir_to_py_path(
+            data_file, default=self.data_file_path()
+        )
 
-            # Make the dir first
-            os.makedirs(os.path.join(*data_file_path[0:-1]), exist_ok=True)
+        # Make the dir first
+        data_file.join('..').ensure_dir()
 
         yaml_data = self.as_yaml()
-        with open(data_file, 'w') as handle:
+        with data_file.open('w') as handle:
             handle.write(yaml_data)
 
         # Update the lazy vals and rehash
