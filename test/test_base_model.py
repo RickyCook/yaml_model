@@ -311,6 +311,7 @@ class TestModel(object):
         Test the Model.all function, with a set data_dir
         """
         created_slugs = []
+
         class Test(Model):  # pylint:disable=missing-docstring
             def __init__(self, slug):
                 created_slugs.append(slug)
@@ -338,6 +339,7 @@ class TestModel(object):
         Test the Model.all function, with additional args to __init__
         """
         created_slugs = []
+
         class Test(Model):  # pylint:disable=missing-docstring
             def __init__(self, slug, arg_a, kwarg_a=None):
                 created_slugs.append(slug)
@@ -379,6 +381,7 @@ class TestModel(object):
         Test the Model.all function, with a set data_dir
         """
         created_slugs = []
+
         class Test(Model):  # pylint:disable=missing-docstring
             def __init__(self, slug):
                 created_slugs.append(slug)
@@ -403,5 +406,7 @@ class TestModel(object):
             for filename in links:
                 filename.mksymlinkto(to_file)
 
-        tuple(Test.all(data_dir=links_dir, dereference=True, skip_non_model=True))
+        tuple(Test.all(data_dir=links_dir,
+                       dereference=True,
+                       skip_non_model=True))
         assert created_slugs == [slug] * len(good_link_names)
