@@ -313,8 +313,11 @@ class TestModel(object):
         created_slugs = []
 
         class Test(Model):  # pylint:disable=missing-docstring
+            slug = None
+
             def __init__(self, slug):
                 created_slugs.append(slug)
+                super(Test, self).__init__()
 
         files = [
             cleandir.join('%s.yaml' % slug)
@@ -341,10 +344,13 @@ class TestModel(object):
         created_slugs = []
 
         class Test(Model):  # pylint:disable=missing-docstring
+            slug = None
+
             def __init__(self, slug, arg_a, kwarg_a=None):
                 created_slugs.append(slug)
                 assert arg_a == args[0]
                 assert kwarg_a == args[1]
+                super(Test, self).__init__()
 
         data_dir = cleandir.join('data', 'tests')
         files = [
@@ -383,8 +389,11 @@ class TestModel(object):
         created_slugs = []
 
         class Test(Model):  # pylint:disable=missing-docstring
+            slug = None
+
             def __init__(self, slug):
                 created_slugs.append(slug)
+                super(Test, self).__init__()
 
         root_file = cleandir.join('data', 'tests', '%s.yaml' % slug)
         root_file.ensure()
