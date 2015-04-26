@@ -6,8 +6,10 @@ from Python objects composed of specialized fields
 from contextlib import contextmanager
 from functools import wraps
 
-import py.error
-import py.path
+# TODO fix this import in pylint!
+# No idea why py fails to import in pylint :(
+import py.error  # pylint:disable=import-error
+import py.path  # pylint:disable=import-error
 
 from yaml import safe_load as yaml_load, dump as yaml_dump
 
