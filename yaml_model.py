@@ -3,9 +3,8 @@ A very light-weight "model" structure to lazy-load (or generate) and save YAML
 from Python objects composed of specialized fields
 """
 
-import os
-
 from contextlib import contextmanager
+from functools import wraps
 
 import py.error
 import py.path
@@ -14,6 +13,7 @@ from yaml import safe_load as yaml_load, dump as yaml_dump
 
 
 IMMUTABLE_TYPES = (int, float, str, tuple, None.__class__)
+INDEXABLE_TYPES = (int, float, str)
 
 
 class ValidationError(Exception):
@@ -56,6 +56,36 @@ class TransientValueError(Exception):
     def __init__(self, value):
         super(TransientValueError, self).__init__()
         self.value = value
+
+
+class IndexValueError(Exception):
+    """
+    Raised when an index value is set to an unindexable value
+    """
+    def __init__(self, var_name, value):
+        super(IndexValueError, self).__init__(
+            "Value '%s' (type %s) can't be used for field index for "
+            "field '%s'" % (value, type(value), var_name)
+        )
+        self.var_name = var_name
+        self.value = value
+
+
+def index_value_decorator(func, var_name):
+    """
+    Decorates a setter function with an indexable type check, raising
+    IndexValueError if the value is "not indexable"
+    """
+    @wraps(func)
+    def outer(self, value):
+        """
+        Wrapped setter, raises IndexValueError when value is invalid
+        """
+        if not isinstance(value, INDEXABLE_TYPES):
+            raise IndexValueError(var_name, value)
+        return func(self, value)
+
+    return outer
 
 
 def hash_value(value):
@@ -159,7 +189,12 @@ class LoadOnAccess(OnAccess):  # pylint:disable=too-few-public-methods
     Mark a field as being lazy loaded with the _load method of the model
     class
     """
-    def __init__(self, default=None, generate=None, *args, **kwargs):
+    def __init__(self,
+                 default=None,
+                 generate=None,
+                 index=False,
+                 *args,
+                 **kwargs):
         def loader(self_):
             """
             Loader function to load the model and return the requested
@@ -174,13 +209,22 @@ class LoadOnAccess(OnAccess):  # pylint:disable=too-few-public-methods
                 return self.process_generate_default(self_, generate, default)
 
         super(LoadOnAccess, self).__init__(loader, *args, **kwargs)
+        self.index = index
 
     def modify_class(self):
         # pylint:disable=no-member
         super(LoadOnAccess, self).modify_class()
         f_attrs = self.future_cls[2]
-        lst = f_attrs.setdefault('_load_on_access', [])
-        lst.append(self.var_name)
+        f_attrs.setdefault('_load_on_access', []).append(self.var_name)
+
+        if self.index:
+            f_attrs.setdefault('_indexed_fields', []).append(self.var_name)
+            f_attrs[self.var_name] = property(
+                f_attrs[self.var_name].fget,
+                index_value_decorator(
+                    f_attrs[self.var_name].fset, self.var_name
+                )
+            )
 
 
 class ModelReference(OnAccess):
@@ -309,7 +353,7 @@ class Model(object, metaclass=ModelMeta):
         """
         Path parts used to create the data directory
         """
-        return py.path.local('.').join('data', cls.data_name())
+        return py.path.local().join('data', cls.data_name())
 
     @classmethod
     def data_dir_to_py_path(cls, data_dir, default=None):
@@ -325,10 +369,68 @@ class Model(object, metaclass=ModelMeta):
                 return cls.data_dir_to_py_path(default)
 
         elif isinstance(data_dir, (tuple, list)):
-            return py.path.local('.').join(*data_dir)
+            return py.path.local().join(*data_dir)
 
         else:
             return py.path.local(data_dir)
+
+    @classmethod
+    def get_where(cls, var_name, value, new_args=None, new_kwargs=None):
+        """
+        Generator for objects, filtered where var_name value is equal to the
+        value given. If var_name is not an indexed field, this may be very
+        slow, as it must fully load every object to query them
+        """
+        args = (var_name, value)
+        kwargs = {
+            'new_args': new_args,
+            'new_kwargs': new_kwargs,
+        }
+        if var_name in getattr(cls, '_indexed_fields', ()):
+            return cls._get_where_indexed(*args, **kwargs)
+
+        else:
+            return cls._get_where_no_index(*args, **kwargs)
+
+    @classmethod
+    def _get_where_indexed(cls,
+                           var_name,
+                           value,
+                           new_args=None,
+                           new_kwargs=None):
+        """
+        Generator for objects, using an existing index to filter on var_name
+        """
+        if not isinstance(value, INDEXABLE_TYPES):
+            raise IndexValueError(var_name, value)
+
+        index_value_dir = cls.data_dir_path().join(
+            '_i_%s' % var_name, str(value)
+        )
+
+        if not index_value_dir.check(dir=True):
+            return ()
+
+        for obj in cls.all(data_dir=index_value_dir,
+                           skip_non_model=True,
+                           new_args=new_args,
+                           new_kwargs=new_kwargs):
+            yield obj
+
+    @classmethod
+    def _get_where_no_index(cls,
+                            var_name,
+                            value,
+                            new_args=None,
+                            new_kwargs=None):
+        """
+        Generator for objects, loading all to filter on var_name
+        """
+        all_objs = cls.all(new_args=new_args,
+                           new_kwargs=new_kwargs)
+        for obj in all_objs:
+            if getattr(obj, var_name) == value:
+                yield obj
 
     @classmethod
     def all(cls,
@@ -348,17 +450,22 @@ class Model(object, metaclass=ModelMeta):
             new_kwargs = {}
 
         model_data_dir = cls.data_dir_path()
-        for filename in data_dir.listdir('*.yaml'):
-            if dereference:
-                real_path = filename.realpath()
-            else:
-                real_path = filename
+        try:
+            for filename in data_dir.listdir('*.yaml'):
+                if dereference:
+                    real_path = filename.realpath()
+                else:
+                    real_path = filename
 
-            if skip_non_model:
-                if real_path.dirname != model_data_dir:
-                    continue
+                if skip_non_model:
+                    if real_path.dirname != model_data_dir:
+                        continue
 
-            yield cls(real_path.basename[:-5], *new_args, **new_kwargs)
+                # pylint:disable=too-many-function-args
+                yield cls(real_path.basename[:-5], *new_args, **new_kwargs)
+
+        except py.error.ENOENT:
+            return ()
 
     def recheck_dirty(self, fields=None):
         """
@@ -414,6 +521,64 @@ class Model(object, metaclass=ModelMeta):
         """
         return self.__class__.data_dir_path().join('%s.yaml' % self.slug)
 
+    def update_indexes(self, for_save=False):
+        """
+        Update all the indexes for this model, removing and adding as
+        necessary. If for_save is true, indexes will be updated from the dirty
+        data; the assumption being that the dirty data is about to be
+        persisted.
+
+        Return True if indexes were updated; False if no changes necessary
+        """
+        if not getattr(self, '_indexed_fields', None):
+            return False  # Nothing updated
+
+        model_file = self.data_file_path()
+
+        for var_name in self._indexed_fields:  # pylint:disable=no-member
+            index_dir = self.__class__.data_dir_path().join('_i_%s' % var_name)
+
+            try:
+                value = self._lazy_vals[var_name]
+            except KeyError:
+                value = getattr(self, var_name)
+
+            if not isinstance(value, INDEXABLE_TYPES):
+                raise IndexValueError(var_name, value)
+
+            current_index_dir = index_dir.join(str(value))
+            current_index_file = current_index_dir.join('%s.yaml' % self.slug)
+
+            if for_save and var_name in self._dirty_vals:
+                dirty_value = self._dirty_vals[var_name]
+                if not isinstance(dirty_value, INDEXABLE_TYPES):
+                    raise IndexValueError(var_name, dirty_value)
+
+                dirty_index_dir = index_dir.join(str(dirty_value))
+                dirty_index_file = dirty_index_dir.join('%s.yaml' % self.slug)
+
+                dirty_index_dir.ensure_dir()
+
+                try:
+                    current_index_file.remove()
+                except py.error.ENOENT:
+                    pass
+
+                dirty_index_file.mksymlinkto(model_file)
+
+                if len(current_index_dir.listdir()) is 0:
+                    current_index_dir.remove()
+
+            else:
+                current_index_dir.ensure_dir()
+                if not current_index_file.check():
+                    current_index_file.mksymlinkto(model_file)
+                    continue
+
+                if not current_index_file.samefile(model_file):
+                    current_index_file.remove()
+                    current_index_file.mksymlinkto(model_file)
+
     def exists(self, data_file=None):
         """
         Check to see if the model file exists (if not, maybe it's new)
@@ -458,6 +623,8 @@ class Model(object, metaclass=ModelMeta):
 
         # Make the dir first
         data_file.join('..').ensure_dir()
+
+        self.update_indexes(for_save=True)
 
         yaml_data = self.as_yaml()
         with data_file.open('w') as handle:
