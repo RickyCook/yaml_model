@@ -2,7 +2,7 @@
 from setuptools import setup
 
 setup(name="yaml_model",
-      version="0.1.2",
+      version="0.1.3",
       description="Semi-transparent YAML serialization/deserialization",
       author="Ricky Cook",
       author_email="mail@thatpanda.com",
