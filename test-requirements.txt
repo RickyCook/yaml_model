@@ -3,7 +3,6 @@ cov-core==1.15.0
 coverage==3.7.1
 logilab-common==0.63.2
 pep8==1.5.7
-py==1.4.26
 pylint==1.4.1
 pytest-cov==1.8.1
 pytest==2.6.4

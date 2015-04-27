@@ -299,3 +299,123 @@ class TestModel(object):
 
         test.from_dict({'mutable': [True]}, dirty=False)
         assert not test.is_dirty('mutable')
+
+    @pytest.mark.parametrize('slugs', [
+        ('testslug',),
+        ('myslug', 'myother', 'some'),
+        ('with spaces', 'some more spaces'),
+        ('Σ', 'œø'),
+    ])
+    def test_all_data_dir(self, cleandir, slugs):
+        """
+        Test the Model.all function, with a set data_dir
+        """
+        created_slugs = []
+
+        class Test(Model):  # pylint:disable=missing-docstring
+            slug = None
+
+            def __init__(self, slug):
+                created_slugs.append(slug)
+                super(Test, self).__init__()
+
+        files = [
+            cleandir.join('%s.yaml' % slug)
+            for slug in slugs
+        ]
+        for filename in files:
+            filename.ensure()
+
+        tuple(Test.all(data_dir=cleandir))
+        assert set(created_slugs) == set(slugs)
+
+    @pytest.mark.parametrize('slugs', [
+        ('myslug', 'myother', 'some'),
+    ])
+    @pytest.mark.parametrize('args', [
+        ('arg', 'kwarg'),
+        (None, None),
+        ({}, []),
+    ])
+    def test_all_pass_args(self, cleandir, slugs, args):
+        """
+        Test the Model.all function, with additional args to __init__
+        """
+        created_slugs = []
+
+        class Test(Model):  # pylint:disable=missing-docstring
+            slug = None
+
+            def __init__(self, slug, arg_a, kwarg_a=None):
+                created_slugs.append(slug)
+                assert arg_a == args[0]
+                assert kwarg_a == args[1]
+                super(Test, self).__init__()
+
+        data_dir = cleandir.join('data', 'tests')
+        files = [
+            data_dir.join('%s.yaml' % slug)
+            for slug in slugs
+        ]
+        for filename in files:
+            filename.ensure()
+
+        tuple(Test.all(new_args=(args[0],),
+                       new_kwargs={'kwarg_a': args[1]}
+                       ))
+        assert set(created_slugs) == set(slugs)
+
+    @pytest.mark.parametrize('slug', [
+        'myslug', 'with spaces', 'Σ',
+    ])
+    @pytest.mark.parametrize('good_link_names', [
+        ('mysluglink',),
+        ('mysluglink', 'morelink'),
+        ('with spaces link', 'more link'),
+        ('Σlink', 'œølink'),
+    ])
+    @pytest.mark.parametrize('fake_link_names', [
+        (),
+        ('bogus', 'Σœø'),
+    ])
+    def test_all_dereference(self,
+                             cleandir,
+                             slug,
+                             good_link_names,
+                             fake_link_names):
+        """
+        Test the Model.all function, with a set data_dir
+        """
+        created_slugs = []
+
+        class Test(Model):  # pylint:disable=missing-docstring
+            slug = None
+
+            def __init__(self, slug):
+                created_slugs.append(slug)
+                super(Test, self).__init__()
+
+        root_file = cleandir.join('data', 'tests', '%s.yaml' % slug)
+        root_file.ensure()
+        fake_file = cleandir.join('fake.yaml')
+        fake_file.ensure()
+
+        links_dir = cleandir.join('links')
+        links_dir.ensure_dir()
+
+        link_loop_data = (
+            (good_link_names, root_file),
+            (fake_link_names, fake_file),
+        )
+        for link_names, to_file in link_loop_data:
+            links = [
+                links_dir.join('%s.yaml' % name)
+                for name in link_names
+            ]
+            for filename in links:
+                filename.mksymlinkto(to_file)
+
+        tuple(Test.all(data_dir=links_dir,
+                       dereference=True,
+                       skip_non_model=True))
+        assert created_slugs == [slug] * len(good_link_names)
