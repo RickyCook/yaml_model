@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.1.4
+- Fix SingletonModel `data_dir_path` list error
+
 ## v0.1.3
 - Indexed keys #3
 - `all` generator on `Model` #3
