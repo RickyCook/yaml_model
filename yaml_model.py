@@ -735,4 +735,4 @@ class SingletonModel(Model):
 
     @classmethod
     def data_dir_path(cls):
-        return ['data']
+        return py.path.local().join('data')
