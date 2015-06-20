@@ -581,6 +581,37 @@ class Model(object, metaclass=ModelMeta):
                     current_index_file.remove()
                     current_index_file.mksymlinkto(model_file)
 
+    def delete(self):
+        """ Delete the Model data, including indexes """
+        if getattr(self, '_indexed_fields', None):
+            for var_name in self._indexed_fields:  # pylint:disable=no-member
+                index_dir = self.__class__.data_dir_path().join(
+                    '_i_%s' % var_name
+                )
+
+                try:
+                    value = self._lazy_vals[var_name]
+                except KeyError:
+                    pass
+                else:
+                    current_index_dir = index_dir.join(str(value))
+                    current_index_file = current_index_dir.join(
+                        '%s.yaml' % self.slug
+                    )
+
+                    try:
+                        current_index_file.remove()
+                    except py.error.ENOENT:
+                        pass
+
+                    if len(current_index_dir.listdir()) is 0:
+                        current_index_dir.remove()
+
+        try:
+            self.data_file_path().remove()
+        except py.error.ENOENT:
+            pass
+
     def exists(self, data_file=None):
         """
         Check to see if the model file exists (if not, maybe it's new)
