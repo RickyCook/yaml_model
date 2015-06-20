@@ -419,3 +419,26 @@ class TestModel(object):
                        dereference=True,
                        skip_non_model=True))
         assert created_slugs == [slug] * len(good_link_names)
+
+    @pytest.mark.parametrize('slug', [
+        'myslug', 'with spaces', 'Σ',
+    ])
+    def test_delete(self, cleandir, slug):
+        """
+        Test the Model.delete function
+        """
+        class Test(Model):  # pylint:disable=missing-docstring
+            slug = None
+
+            def __init__(self, slug):
+                self.slug = slug
+                super(Test, self).__init__()
+
+        model = Test(slug)
+        model.save()
+
+        model_file = cleandir.join('data', 'tests', '%s.yaml' % slug)
+        assert model_file.check()
+
+        model.delete()
+        assert not model_file.check()

@@ -266,3 +266,42 @@ class TestIndexes(object):
         assert not index_value_dir_pre.check()
         assert index_file_post.check(link=True, file=True)
         assert index_file_post.samefile(model_file)
+
+    @pytest.mark.parametrize('slug', [
+        'justone',
+        'with spaces', 'some more spaces',
+        'Σ', 'œø', 'åę😀',
+    ])
+    @pytest.mark.parametrize('value_a, value_b', [
+        ('testval', 'spaces val'),
+        ('Σval', '😀val'),
+    ])
+    def test_delete_index(self, cleandir, slug, value_a, value_b):
+        """ Ensure indexes are deleted when the model is """
+        class Test(Model):  # pylint:disable=missing-docstring
+            slug = None
+            test_field_a = LoadOnAccess(index=True)
+            test_field_b = LoadOnAccess(index=True)
+
+            def __init__(self, slug):
+                super(Test, self).__init__()
+                self.slug = slug
+
+        model = Test(slug)
+        model.test_field_a = value_a
+        model.test_field_b = value_b
+        model.save()
+
+        model_dir = cleandir.join('data', 'tests')
+        expected_value_a_dir = model_dir.join('_i_test_field_a', value_a)
+        expected_value_b_dir = model_dir.join('_i_test_field_b', value_b)
+        expected_link_a = expected_value_a_dir.join('%s.yaml' % slug)
+        expected_link_b = expected_value_b_dir.join('%s.yaml' % slug)
+        assert expected_link_a.check()
+        assert expected_link_b.check()
+
+        model.delete()
+        assert not expected_link_a.check()
+        assert not expected_link_b.check()
+        assert not expected_value_a_dir.check()
+        assert not expected_value_b_dir.check()
