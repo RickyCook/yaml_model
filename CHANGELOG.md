@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.1.5
+- Add delete method for all modelsm #7
+
 ## v0.1.4
 - Fix SingletonModel `data_dir_path` list error #4
 
